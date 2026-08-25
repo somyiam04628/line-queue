@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>จองคิว</title>
+
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f5f7fa;
+      margin: 0;
+      padding: 20px;
+    }
+
+    .box {
+      max-width: 500px;
+      margin: auto;
+      background: white;
+      padding: 25px;
+      border-radius: 20px;
+      box-shadow: 0 4px 15px rgba(0,0,0,.1);
+    }
+
+    h1 {
+      text-align: center;
+    }
+
+    .profile {
+      text-align: center;
+      margin: 20px 0;
+    }
+
+    .profile img {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+    }
+
+    select,
+    input,
+    button {
+      width: 100%;
+      padding: 14px;
+      margin-top: 10px;
+      border-radius: 10px;
+      border: 1px solid #ddd;
+      box-sizing: border-box;
+      font-size: 16px;
+    }
+
+    button {
+      background: #06c755;
+      color: white;
+      border: none;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    #message {
+      text-align: center;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="box">
+
+  <h1>📋 ระบบจองคิว</h1>
+
+  <div id="loading">
+    กำลังเชื่อมต่อ LINE...
+  </div>
+
+  <div id="app" style="display:none">
+
+    <div class="profile">
+
+      <img id="picture" src="">
+
+      <h3 id="name"></h3>
+
+      <p>ยินดีต้อนรับ</p>
+
+    </div>
+
+    <label>บริการ</label>
+
+    <select id="service">
+      <option value="">-- เลือกบริการ --</option>
+    </select>
+
+    <label>วันที่</label>
+
+    <input
+      type="date"
+      id="date"
+    >
+
+    <label>เวลา</label>
+
+    <select id="slot">
+      <option value="">-- เลือกเวลา --</option>
+    </select>
+
+    <label>เบอร์โทรศัพท์</label>
+
+    <input
+      type="tel"
+      id="phone"
+      placeholder="0812345678"
+    >
+
+    <button onclick="book()">
+      ✅ ยืนยันการจอง
+    </button>
+
+    <div id="message"></div>
+
+  </div>
+
+</div>
+
+
+<script>
+
+const LIFF_ID =
+  "2011225698-bSr8gECS";
+
+async function start() {
+
+  try {
+
+    await liff.init({
+      liffId: LIFF_ID
+    });
+
+    if (!liff.isLoggedIn()) {
+
+      liff.login();
+
+      return;
+    }
+
+    const profile =
+      await liff.getProfile();
+
+    document.getElementById(
+      "picture"
+    ).src = profile.pictureUrl;
+
+    document.getElementById(
+      "name"
+    ).textContent =
+      profile.displayName;
+
+    document.getElementById(
+      "loading"
+    ).style.display = "none";
+
+    document.getElementById(
+      "app"
+    ).style.display = "block";
+
+    setToday();
+
+  } catch (error) {
+
+    document.getElementById(
+      "loading"
+    ).innerHTML =
+      "เกิดข้อผิดพลาด: " +
+      error.message;
+
+    console.error(error);
+
+  }
+
+}
+
+
+function setToday() {
+
+  const now = new Date();
+
+  const year =
+    now.getFullYear();
+
+  const month =
+    String(
+      now.getMonth() + 1
+    ).padStart(2, "0");
+
+  const day =
+    String(
+      now.getDate()
+    ).padStart(2, "0");
+
+  document.getElementById(
+    "date"
+  ).value =
+    `${year}-${month}-${day}`;
+
+}
+
+
+function book() {
+
+  document.getElementById(
+    "message"
+  ).innerHTML =
+    "กำลังเตรียมระบบจองคิว...";
+
+}
+
+
+start();
+
+</script>
+
+</body>
+</html>
