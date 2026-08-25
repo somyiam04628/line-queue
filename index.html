@@ -4,96 +4,174 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <title>จองคิว</title>
+  <title>ระบบจองคิว</title>
 
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 
   <style>
+    * {
+      box-sizing: border-box;
+    }
+
     body {
-      font-family: Arial, sans-serif;
-      background: #f5f7fa;
       margin: 0;
+      font-family: Arial, "Noto Sans Thai", sans-serif;
+      background: #f4f7f9;
+      color: #222;
+    }
+
+    .container {
+      max-width: 520px;
+      margin: auto;
       padding: 20px;
     }
 
-    .box {
-      max-width: 500px;
-      margin: auto;
-      background: white;
-      padding: 25px;
-      border-radius: 20px;
-      box-shadow: 0 4px 15px rgba(0,0,0,.1);
+    .card {
+      background: #fff;
+      border-radius: 18px;
+      padding: 20px;
+      margin-bottom: 16px;
+      box-shadow: 0 4px 15px rgba(0,0,0,.08);
     }
 
     h1 {
       text-align: center;
+      margin: 5px 0 20px;
     }
 
     .profile {
-      text-align: center;
-      margin: 20px 0;
+      display: flex;
+      align-items: center;
+      gap: 14px;
     }
 
     .profile img {
-      width: 80px;
-      height: 80px;
+      width: 65px;
+      height: 65px;
       border-radius: 50%;
+      object-fit: cover;
+    }
+
+    label {
+      display: block;
+      margin-top: 15px;
+      margin-bottom: 6px;
+      font-weight: bold;
     }
 
     select,
     input,
-    button {
+    textarea {
       width: 100%;
-      padding: 14px;
-      margin-top: 10px;
-      border-radius: 10px;
+      padding: 13px;
       border: 1px solid #ddd;
-      box-sizing: border-box;
+      border-radius: 10px;
       font-size: 16px;
+      background: #fff;
+    }
+
+    textarea {
+      min-height: 80px;
+      resize: vertical;
     }
 
     button {
-      background: #06c755;
-      color: white;
-      border: none;
+      width: 100%;
+      padding: 15px;
+      margin-top: 18px;
+      border: 0;
+      border-radius: 12px;
+      font-size: 17px;
       font-weight: bold;
       cursor: pointer;
     }
 
-    #message {
+    .btn-primary {
+      background: #06c755;
+      color: #fff;
+    }
+
+    .btn-primary:disabled {
+      background: #aaa;
+      cursor: not-allowed;
+    }
+
+    .loading {
       text-align: center;
-      margin-top: 20px;
+      padding: 20px;
+    }
+
+    .error {
+      background: #ffe8e8;
+      color: #b00020;
+      padding: 12px;
+      margin-top: 15px;
+      border-radius: 10px;
+    }
+
+    .success {
+      text-align: center;
+    }
+
+    .queue-number {
+      font-size: 70px;
+      font-weight: bold;
+      margin: 10px 0;
+    }
+
+    .booking-code {
+      display: inline-block;
+      padding: 12px 20px;
+      background: #f1f3f5;
+      border-radius: 10px;
+      font-size: 20px;
+      font-weight: bold;
+    }
+
+    .hidden {
+      display: none !important;
     }
   </style>
 </head>
 
 <body>
 
-<div class="box">
+<div class="container">
 
-  <h1>📋 ระบบจองคิว</h1>
+  <!-- Header -->
+  <div class="card">
 
-  <div id="loading">
-    กำลังเชื่อมต่อ LINE...
-  </div>
+    <h1>📋 ระบบจองคิว</h1>
 
-  <div id="app" style="display:none">
+    <div id="loading" class="loading">
+      กำลังเชื่อมต่อ LINE...
+    </div>
 
-    <div class="profile">
+    <div id="profile" class="profile hidden">
 
-      <img id="picture" src="">
+      <img id="picture" src="" alt="LINE Profile">
 
-      <h3 id="name"></h3>
-
-      <p>ยินดีต้อนรับ</p>
+      <div>
+        <strong id="name">-</strong>
+        <div>เข้าสู่ระบบด้วย LINE</div>
+      </div>
 
     </div>
+
+  </div>
+
+
+  <!-- Booking Form -->
+  <div id="bookingCard" class="card hidden">
 
     <label>บริการ</label>
 
     <select id="service">
-      <option value="">-- เลือกบริการ --</option>
+      <option value="">
+        -- กำลังโหลดบริการ --
+      </option>
     </select>
+
 
     <label>วันที่</label>
 
@@ -102,11 +180,15 @@
       id="date"
     >
 
+
     <label>เวลา</label>
 
     <select id="slot">
-      <option value="">-- เลือกเวลา --</option>
+      <option value="">
+        -- เลือกบริการและวันที่ก่อน --
+      </option>
     </select>
+
 
     <label>เบอร์โทรศัพท์</label>
 
@@ -114,13 +196,81 @@
       type="tel"
       id="phone"
       placeholder="0812345678"
+      maxlength="10"
     >
 
-    <button onclick="book()">
+
+    <label>หมายเหตุ</label>
+
+    <textarea
+      id="note"
+      placeholder="รายละเอียดเพิ่มเติม (ถ้ามี)"
+    ></textarea>
+
+
+    <button
+      id="bookButton"
+      class="btn-primary"
+      onclick="book()"
+    >
       ✅ ยืนยันการจอง
     </button>
 
+
     <div id="message"></div>
+
+  </div>
+
+
+  <!-- Success -->
+  <div
+    id="successCard"
+    class="card success hidden"
+  >
+
+    <h2>🎉 จองคิวสำเร็จ</h2>
+
+    <div>หมายเลขคิว</div>
+
+    <div
+      id="queueNumber"
+      class="queue-number"
+    >
+      -
+    </div>
+
+    <div>รหัสการจอง</div>
+
+    <p>
+      <span
+        id="bookingCode"
+        class="booking-code"
+      >
+        -
+      </span>
+    </p>
+
+    <p>
+      บริการ:
+      <strong id="resultService">-</strong>
+    </p>
+
+    <p>
+      วันที่:
+      <strong id="resultDate">-</strong>
+    </p>
+
+    <p>
+      เวลา:
+      <strong id="resultTime">-</strong>
+    </p>
+
+    <button
+      class="btn-primary"
+      onclick="location.reload()"
+    >
+      จองคิวใหม่
+    </button>
 
   </div>
 
@@ -129,8 +279,34 @@
 
 <script>
 
+/* =====================================================
+   CONFIG
+   ===================================================== */
+
 const LIFF_ID =
   "2011225698-bSr8gECS";
+
+const SUPABASE_URL =
+  "https://fkrwxbhmkjwajrdcczzf.supabase.co";
+
+const EDGE_FUNCTION_URL =
+  SUPABASE_URL +
+  "/functions/v1/create-booking";
+
+
+/*
+ * ใส่ Supabase Publishable key ของคุณตรงนี้
+ *
+ * ห้ามใส่ service_role key
+ */
+
+const SUPABASE_KEY =
+  "ใส่_PUBLISHABLE_KEY_ของคุณตรงนี้";
+
+
+/* =====================================================
+   START LIFF
+   ===================================================== */
 
 async function start() {
 
@@ -140,6 +316,7 @@ async function start() {
       liffId: LIFF_ID
     });
 
+
     if (!liff.isLoggedIn()) {
 
       liff.login();
@@ -147,77 +324,764 @@ async function start() {
       return;
     }
 
+
     const profile =
       await liff.getProfile();
 
+
     document.getElementById(
       "picture"
-    ).src = profile.pictureUrl;
+    ).src =
+      profile.pictureUrl || "";
+
 
     document.getElementById(
       "name"
     ).textContent =
-      profile.displayName;
+      profile.displayName || "-";
+
 
     document.getElementById(
       "loading"
-    ).style.display = "none";
+    ).classList.add("hidden");
+
 
     document.getElementById(
-      "app"
-    ).style.display = "block";
+      "profile"
+    ).classList.remove("hidden");
+
+
+    document.getElementById(
+      "bookingCard"
+    ).classList.remove("hidden");
+
 
     setToday();
 
+    await loadServices();
+
+
   } catch (error) {
+
+    console.error(error);
 
     document.getElementById(
       "loading"
     ).innerHTML =
-      "เกิดข้อผิดพลาด: " +
-      error.message;
-
-    console.error(error);
+      '<div class="error">' +
+      escapeHtml(
+        "ไม่สามารถเชื่อมต่อ LINE: " +
+        error.message
+      ) +
+      '</div>';
 
   }
 
 }
 
 
+/* =====================================================
+   TODAY
+   ===================================================== */
+
 function setToday() {
 
-  const now = new Date();
+  const now =
+    new Date();
+
 
   const year =
     now.getFullYear();
+
 
   const month =
     String(
       now.getMonth() + 1
     ).padStart(2, "0");
 
+
   const day =
     String(
       now.getDate()
     ).padStart(2, "0");
 
-  document.getElementById(
-    "date"
-  ).value =
+
+  const today =
     `${year}-${month}-${day}`;
+
+
+  const date =
+    document.getElementById(
+      "date"
+    );
+
+
+  date.value =
+    today;
+
+
+  date.min =
+    today;
 
 }
 
 
-function book() {
+/* =====================================================
+   LOAD SERVICES
+   ===================================================== */
+
+async function loadServices() {
+
+  try {
+
+    const url =
+      SUPABASE_URL +
+      "/rest/v1/services" +
+      "?select=id,name,description" +
+      "&active=eq.true" +
+      "&order=name";
+
+
+    const response =
+      await fetch(
+        url,
+        {
+          headers: {
+            "apikey":
+              SUPABASE_KEY,
+
+            "Authorization":
+              "Bearer " +
+              SUPABASE_KEY
+          }
+        }
+      );
+
+
+    if (!response.ok) {
+
+      const text =
+        await response.text();
+
+      throw new Error(
+        "โหลดบริการไม่สำเร็จ: " +
+        text
+      );
+
+    }
+
+
+    const services =
+      await response.json();
+
+
+    const select =
+      document.getElementById(
+        "service"
+      );
+
+
+    select.innerHTML =
+      '<option value="">-- เลือกบริการ --</option>';
+
+
+    services.forEach(
+      service => {
+
+        const option =
+          document.createElement(
+            "option"
+          );
+
+        option.value =
+          service.id;
+
+        option.textContent =
+          service.name;
+
+        select.appendChild(
+          option
+        );
+
+      }
+    );
+
+
+    if (services.length === 0) {
+
+      select.innerHTML =
+        '<option value="">ยังไม่มีบริการ</option>';
+
+    }
+
+
+  } catch (error) {
+
+    console.error(error);
+
+    showError(
+      error.message
+    );
+
+  }
+
+}
+
+
+/* =====================================================
+   LOAD SLOTS
+   ===================================================== */
+
+async function loadSlots() {
+
+  const serviceId =
+    document.getElementById(
+      "service"
+    ).value;
+
+
+  const queueDate =
+    document.getElementById(
+      "date"
+    ).value;
+
+
+  const select =
+    document.getElementById(
+      "slot"
+    );
+
+
+  if (!serviceId || !queueDate) {
+
+    select.innerHTML =
+      '<option value="">-- เลือกบริการและวันที่ --</option>';
+
+    return;
+
+  }
+
+
+  select.innerHTML =
+    '<option value="">กำลังโหลดเวลา...</option>';
+
+
+  try {
+
+    const url =
+      SUPABASE_URL +
+      "/rest/v1/queue_slots" +
+      "?select=id,queue_time,max_queue,current_queue" +
+      "&service_id=eq." +
+      encodeURIComponent(
+        serviceId
+      ) +
+      "&queue_date=eq." +
+      encodeURIComponent(
+        queueDate
+      ) +
+      "&active=eq.true" +
+      "&order=queue_time";
+
+
+    const response =
+      await fetch(
+        url,
+        {
+          headers: {
+            "apikey":
+              SUPABASE_KEY,
+
+            "Authorization":
+              "Bearer " +
+              SUPABASE_KEY
+          }
+        }
+      );
+
+
+    if (!response.ok) {
+
+      const text =
+        await response.text();
+
+      throw new Error(
+        "โหลดเวลาจองไม่สำเร็จ: " +
+        text
+      );
+
+    }
+
+
+    const slots =
+      await response.json();
+
+
+    select.innerHTML =
+      '<option value="">-- เลือกเวลา --</option>';
+
+
+    slots.forEach(
+      slot => {
+
+        const max =
+          Number(
+            slot.max_queue || 0
+          );
+
+
+        const current =
+          Number(
+            slot.current_queue || 0
+          );
+
+
+        const remaining =
+          max - current;
+
+
+        const option =
+          document.createElement(
+            "option"
+          );
+
+
+        option.value =
+          slot.id;
+
+
+        option.textContent =
+          formatTime(
+            slot.queue_time
+          ) +
+          (
+            remaining > 0
+              ? ` - เหลือ ${remaining} คิว`
+              : " - เต็ม"
+          );
+
+
+        if (remaining <= 0) {
+
+          option.disabled =
+            true;
+
+        }
+
+
+        select.appendChild(
+          option
+        );
+
+      }
+    );
+
+
+    if (slots.length === 0) {
+
+      select.innerHTML =
+        '<option value="">ไม่มีเวลาว่างในวันนี้</option>';
+
+    }
+
+
+  } catch (error) {
+
+    console.error(error);
+
+    select.innerHTML =
+      '<option value="">โหลดเวลาไม่สำเร็จ</option>';
+
+    showError(
+      error.message
+    );
+
+  }
+
+}
+
+
+/* =====================================================
+   BOOK
+   ===================================================== */
+
+async function book() {
+
+  clearMessage();
+
+
+  const serviceId =
+    document.getElementById(
+      "service"
+    ).value;
+
+
+  const slotId =
+    document.getElementById(
+      "slot"
+    ).value;
+
+
+  const queueDate =
+    document.getElementById(
+      "date"
+    ).value;
+
+
+  const phone =
+    document.getElementById(
+      "phone"
+    ).value.trim();
+
+
+  const note =
+    document.getElementById(
+      "note"
+    ).value.trim();
+
+
+  if (!serviceId) {
+
+    showError(
+      "กรุณาเลือกบริการ"
+    );
+
+    return;
+
+  }
+
+
+  if (!slotId) {
+
+    showError(
+      "กรุณาเลือกเวลา"
+    );
+
+    return;
+
+  }
+
+
+  if (!queueDate) {
+
+    showError(
+      "กรุณาเลือกวันที่"
+    );
+
+    return;
+
+  }
+
+
+  if (
+    phone &&
+    !/^0[0-9]{9}$/.test(phone)
+  ) {
+
+    showError(
+      "กรุณากรอกเบอร์โทรศัพท์ 10 หลัก"
+    );
+
+    return;
+
+  }
+
+
+  const button =
+    document.getElementById(
+      "bookButton"
+    );
+
+
+  button.disabled =
+    true;
+
+
+  button.textContent =
+    "กำลังจองคิว...";
+
+
+  try {
+
+    const idToken =
+      liff.getIDToken();
+
+
+    if (!idToken) {
+
+      throw new Error(
+        "ไม่พบ LINE ID Token กรุณาเปิดผ่าน LIFF"
+      );
+
+    }
+
+
+    const response =
+      await fetch(
+        EDGE_FUNCTION_URL,
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json"
+          },
+
+          body:
+            JSON.stringify({
+
+              id_token:
+                idToken,
+
+              service_id:
+                serviceId,
+
+              slot_id:
+                slotId,
+
+              queue_date:
+                queueDate,
+
+              phone:
+                phone || null,
+
+              note:
+                note || null
+
+            })
+        }
+      );
+
+
+    const result =
+      await response.json();
+
+
+    console.log(
+      "BOOKING RESULT:",
+      result
+    );
+
+
+    if (!response.ok) {
+
+      throw new Error(
+        result.error ||
+        result.message ||
+        "จองคิวไม่สำเร็จ"
+      );
+
+    }
+
+
+    if (!result.success) {
+
+      throw new Error(
+        result.message ||
+        "จองคิวไม่สำเร็จ"
+      );
+
+    }
+
+
+    showSuccess(
+      result.booking
+    );
+
+
+  } catch (error) {
+
+    console.error(error);
+
+    showError(
+      error.message
+    );
+
+
+    button.disabled =
+      false;
+
+    button.textContent =
+      "✅ ยืนยันการจอง";
+
+  }
+
+}
+
+
+/* =====================================================
+   SUCCESS
+   ===================================================== */
+
+function showSuccess(
+  booking
+) {
+
+  document.getElementById(
+    "bookingCard"
+  ).classList.add("hidden");
+
+
+  document.getElementById(
+    "successCard"
+  ).classList.remove("hidden");
+
+
+  document.getElementById(
+    "queueNumber"
+  ).textContent =
+    booking.queue_number ?? "-";
+
+
+  document.getElementById(
+    "bookingCode"
+  ).textContent =
+    booking.booking_code ?? "-";
+
+
+  document.getElementById(
+    "resultService"
+  ).textContent =
+    booking.service ?? "-";
+
+
+  document.getElementById(
+    "resultDate"
+  ).textContent =
+    formatDate(
+      booking.queue_date
+    );
+
+
+  document.getElementById(
+    "resultTime"
+  ).textContent =
+    formatTime(
+      booking.queue_time
+    );
+
+}
+
+
+/* =====================================================
+   EVENTS
+   ===================================================== */
+
+document
+  .getElementById("service")
+  .addEventListener(
+    "change",
+    loadSlots
+  );
+
+
+document
+  .getElementById("date")
+  .addEventListener(
+    "change",
+    loadSlots
+  );
+
+
+/* =====================================================
+   FORMAT
+   ===================================================== */
+
+function formatTime(
+  time
+) {
+
+  if (!time) {
+    return "-";
+  }
+
+
+  return (
+    String(time).substring(0, 5) +
+    " น."
+  );
+
+}
+
+
+function formatDate(
+  date
+) {
+
+  if (!date) {
+    return "-";
+  }
+
+
+  const parts =
+    date.split("-");
+
+
+  if (parts.length !== 3) {
+    return date;
+  }
+
+
+  return (
+    parts[2] +
+    "/" +
+    parts[1] +
+    "/" +
+    (
+      Number(parts[0]) + 543
+    )
+  );
+
+}
+
+
+/* =====================================================
+   MESSAGE
+   ===================================================== */
+
+function showError(
+  message
+) {
 
   document.getElementById(
     "message"
   ).innerHTML =
-    "กำลังเตรียมระบบจองคิว...";
+    '<div class="error">' +
+    escapeHtml(message) +
+    '</div>';
 
 }
 
+
+function clearMessage() {
+
+  document.getElementById(
+    "message"
+  ).innerHTML = "";
+
+}
+
+
+function escapeHtml(
+  text
+) {
+
+  const div =
+    document.createElement(
+      "div"
+    );
+
+  div.textContent =
+    String(text);
+
+  return div.innerHTML;
+
+}
+
+
+/* =====================================================
+   START
+   ===================================================== */
 
 start();
 
