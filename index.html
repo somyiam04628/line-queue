@@ -325,6 +325,20 @@ async function start() {
     }
 
 
+    const idTokenCheck =
+      liff.getIDToken();
+
+    if (!idTokenCheck) {
+
+      // เคยล็อกอินไปก่อนที่จะเปิด scope openid
+      // ต้องบังคับล็อกอินใหม่เพื่อขอ ID Token
+      liff.logout();
+      liff.login();
+
+      return;
+    }
+
+
     const profile =
       await liff.getProfile();
 
