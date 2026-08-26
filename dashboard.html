@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>แดชบอร์ดคิว รพ.สต.</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, "Noto Sans Thai", sans-serif;
+      background: #f4f7f9;
+      color: #222;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: auto;
+      padding: 20px;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 18px;
+      padding: 20px;
+      margin-bottom: 16px;
+      box-shadow: 0 4px 15px rgba(0,0,0,.08);
+    }
+
+    h1 { text-align: center; margin: 5px 0 20px; }
+    h2 { font-size: 17px; margin: 0 0 14px; }
+
+    label { display: block; margin-bottom: 6px; font-weight: bold; font-size: 14px; }
+
+    input, button, select {
+      width: 100%;
+      padding: 13px;
+      border: 1px solid #ddd;
+      border-radius: 10px;
+      font-size: 16px;
+      background: #fff;
+    }
+
+    button {
+      border: 0;
+      background: #06c755;
+      color: #fff;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:disabled { background: #aaa; cursor: not-allowed; }
+
+    .error {
+      background: #ffe8e8;
+      color: #b00020;
+      padding: 12px;
+      margin-top: 15px;
+      border-radius: 10px;
+    }
+
+    .hidden { display: none !important; }
+
+    /* login */
+    #loginCard { max-width: 380px; margin: 60px auto; }
+
+    /* filter row */
+    .filter-row {
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+      flex-wrap: wrap;
+    }
+    .filter-row > div { flex: 1; min-width: 140px; }
+    .filter-row button { flex: 0 0 auto; width: auto; padding: 13px 20px; }
+
+    /* stat cards */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 12px;
+    }
+    .stat-box {
+      background: #f4f7f9;
+      border-radius: 12px;
+      padding: 14px;
+      text-align: center;
+    }
+    .stat-box .num { font-size: 30px; font-weight: bold; }
+    .stat-box .lbl { font-size: 13px; color: #666; margin-top: 4px; }
+    .stat-total .num { color: #06c755; }
+    .stat-booked .num { color: #2b7de9; }
+    .stat-done .num { color: #06c755; }
+    .stat-cancelled .num { color: #b00020; }
+    .stat-no_show .num { color: #e0952b; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { padding: 9px 10px; text-align: left; border-bottom: 1px solid #eee; }
+    th { background: #f4f7f9; position: sticky; top: 0; }
+    .table-wrap { max-height: 420px; overflow-y: auto; border-radius: 10px; }
+
+    .topbar { display: flex; justify-content: space-between; align-items: center; }
+    .logout-link { color: #b00020; text-decoration: underline; cursor: pointer; font-size: 14px; background:none; border:none; width:auto; padding:0; }
+
+    canvas { max-height: 320px; }
+  </style>
+</head>
+
+<body>
+
+<div class="container">
+
+  <!-- LOGIN -->
+  <div id="loginCard" class="card">
+    <h1>🔒 แดชบอร์ดคิว รพ.สต.</h1>
+    <label>รหัสผ่านแอดมิน</label>
+    <input type="password" id="password" placeholder="กรอกรหัสผ่าน">
+    <button id="loginBtn" style="margin-top:14px;">เข้าสู่ระบบ</button>
+    <div id="loginError"></div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div id="dashboardArea" class="hidden">
+
+    <div class="card topbar">
+      <h1 style="margin:0;">📊 แดชบอร์ดคิว รพ.สต.</h1>
+      <button class="logout-link" id="logoutBtn">ออกจากระบบ</button>
+    </div>
+
+    <div class="card">
+      <div class="filter-row">
+        <div>
+          <label>จากวันที่</label>
+          <input type="date" id="fromDate">
+        </div>
+        <div>
+          <label>ถึงวันที่</label>
+          <input type="date" id="toDate">
+        </div>
+        <button id="refreshBtn">รีเฟรชข้อมูล</button>
+      </div>
+      <div id="dashError"></div>
+    </div>
+
+    <div class="card">
+      <h2>สรุปภาพรวม (ตามช่วงวันที่เลือก)</h2>
+      <div class="stat-grid" id="statGrid"></div>
+    </div>
+
+    <div class="card">
+      <h2>จำนวนคิวแยกตามบริการ</h2>
+      <canvas id="serviceChart"></canvas>
+    </div>
+
+    <div class="card">
+      <h2>จำนวนคิวแยกตามวันที่ (แต่ละบริการ)</h2>
+      <div class="table-wrap">
+        <table id="pivotTable">
+          <thead><tr id="pivotHead"></tr></thead>
+          <tbody id="pivotBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+
+<script>
+
+/* =====================================================
+   CONFIG — ใช้ค่าเดียวกับ index.html
+   ===================================================== */
+
+const SUPABASE_URL =
+  "https://fkrwxbhmkjwajrdcczzf.supabase.co";
+
+const SUPABASE_KEY =
+  "sb_publishable_9O4GEABG4QWGCKxBveuOCA_JEgBMxko";
+
+const EDGE_FUNCTION_URL =
+  SUPABASE_URL + "/functions/v1/admin-dashboard";
+
+const STATUS_LABEL = {
+  booked: "รอเข้ารับบริการ",
+  done: "มารับบริการแล้ว",
+  cancelled: "ยกเลิก",
+  no_show: "ไม่มาตามนัด"
+};
+
+let allBookings = [];   // เก็บข้อมูลดิบทั้งหมดหลังล็อกอิน
+let adminPassword = ""; // เก็บไว้ใช้ตอนกด "รีเฟรชข้อมูล"
+let chartInstance = null;
+
+
+/* =====================================================
+   LOGIN
+   ===================================================== */
+
+document.getElementById("loginBtn").addEventListener("click", login);
+document.getElementById("password").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") login();
+});
+
+async function login() {
+
+  const password = document.getElementById("password").value;
+  const loginBtn = document.getElementById("loginBtn");
+  const errorBox = document.getElementById("loginError");
+
+  errorBox.innerHTML = "";
+
+  if (!password) {
+    errorBox.innerHTML = '<div class="error">กรุณากรอกรหัสผ่าน</div>';
+    return;
+  }
+
+  loginBtn.disabled = true;
+  loginBtn.textContent = "กำลังตรวจสอบ...";
+
+  try {
+
+    const bookings = await fetchBookings(password);
+
+    adminPassword = password;
+    allBookings = bookings;
+
+    document.getElementById("loginCard").classList.add("hidden");
+    document.getElementById("dashboardArea").classList.remove("hidden");
+
+    setDefaultDateRange();
+    renderDashboard();
+
+  } catch (error) {
+
+    errorBox.innerHTML = '<div class="error">' + escapeHtml(error.message) + '</div>';
+
+  } finally {
+
+    loginBtn.disabled = false;
+    loginBtn.textContent = "เข้าสู่ระบบ";
+
+  }
+
+}
+
+
+function logout() {
+  adminPassword = "";
+  allBookings = [];
+  document.getElementById("password").value = "";
+  document.getElementById("dashboardArea").classList.add("hidden");
+  document.getElementById("loginCard").classList.remove("hidden");
+}
+
+document.getElementById("logoutBtn").addEventListener("click", logout);
+
+
+/* =====================================================
+   FETCH DATA FROM EDGE FUNCTION
+   ===================================================== */
+
+async function fetchBookings(password) {
+
+  const response = await fetch(EDGE_FUNCTION_URL, {
+    method: "GET",
+    headers: {
+      "apikey": SUPABASE_KEY,
+      "Authorization": "Bearer " + SUPABASE_KEY,
+      "x-admin-password": password
+    }
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.error || "โหลดข้อมูลไม่สำเร็จ");
+  }
+
+  return result.bookings || [];
+
+}
+
+
+/* =====================================================
+   REFRESH BUTTON
+   ===================================================== */
+
+document.getElementById("refreshBtn").addEventListener("click", async () => {
+
+  const btn = document.getElementById("refreshBtn");
+  const errorBox = document.getElementById("dashError");
+
+  errorBox.innerHTML = "";
+  btn.disabled = true;
+  btn.textContent = "กำลังโหลด...";
+
+  try {
+
+    allBookings = await fetchBookings(adminPassword);
+    renderDashboard();
+
+  } catch (error) {
+
+    errorBox.innerHTML = '<div class="error">' + escapeHtml(error.message) + '</div>';
+
+  } finally {
+
+    btn.disabled = false;
+    btn.textContent = "รีเฟรชข้อมูล";
+
+  }
+
+});
+
+document.getElementById("fromDate").addEventListener("change", renderDashboard);
+document.getElementById("toDate").addEventListener("change", renderDashboard);
+
+
+/* =====================================================
+   DEFAULT DATE RANGE (30 วันล่าสุด)
+   ===================================================== */
+
+function setDefaultDateRange() {
+
+  const today = new Date();
+  const past = new Date();
+  past.setDate(today.getDate() - 30);
+
+  document.getElementById("fromDate").value = toDateStr(past);
+  document.getElementById("toDate").value = toDateStr(today);
+
+}
+
+function toDateStr(d) {
+  return d.toISOString().slice(0, 10);
+}
+
+
+/* =====================================================
+   RENDER DASHBOARD (filter + stats + chart + table)
+   ===================================================== */
+
+function renderDashboard() {
+
+  const from = document.getElementById("fromDate").value;
+  const to = document.getElementById("toDate").value;
+
+  const filtered = allBookings.filter((b) => {
+    if (from && b.queue_date < from) return false;
+    if (to && b.queue_date > to) return false;
+    return true;
+  });
+
+  renderStats(filtered);
+  renderServiceChart(filtered);
+  renderPivotTable(filtered);
+
+}
+
+
+/* ---------- Stat cards ---------- */
+
+function renderStats(rows) {
+
+  const counts = { total: rows.length, booked: 0, done: 0, cancelled: 0, no_show: 0 };
+
+  rows.forEach((b) => {
+    if (counts[b.status] !== undefined) counts[b.status]++;
+  });
+
+  const grid = document.getElementById("statGrid");
+
+  grid.innerHTML = `
+    <div class="stat-box stat-total"><div class="num">${counts.total}</div><div class="lbl">จองทั้งหมด</div></div>
+    <div class="stat-box stat-booked"><div class="num">${counts.booked}</div><div class="lbl">รอเข้ารับบริการ</div></div>
+    <div class="stat-box stat-done"><div class="num">${counts.done}</div><div class="lbl">มารับบริการแล้ว</div></div>
+    <div class="stat-box stat-no_show"><div class="num">${counts.no_show}</div><div class="lbl">ไม่มาตามนัด</div></div>
+    <div class="stat-box stat-cancelled"><div class="num">${counts.cancelled}</div><div class="lbl">ยกเลิก</div></div>
+  `;
+
+}
+
+
+/* ---------- Bar chart: จำนวนคิวต่อบริการ ---------- */
+
+function renderServiceChart(rows) {
+
+  const perService = {};
+
+  rows.forEach((b) => {
+    const key = b.service_name || "ไม่ระบุบริการ";
+    perService[key] = (perService[key] || 0) + 1;
+  });
+
+  const labels = Object.keys(perService);
+  const values = labels.map((l) => perService[l]);
+
+  const ctx = document.getElementById("serviceChart").getContext("2d");
+
+  if (chartInstance) {
+    chartInstance.destroy();
+  }
+
+  chartInstance = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels: labels,
+      datasets: [{
+        label: "จำนวนคิว",
+        data: values,
+        backgroundColor: "#06c755",
+        borderRadius: 8
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, ticks: { precision: 0 } }
+      }
+    }
+  });
+
+}
+
+
+/* ---------- Pivot table: วันที่ × บริการ ---------- */
+
+function renderPivotTable(rows) {
+
+  const services = [...new Set(rows.map((b) => b.service_name || "ไม่ระบุบริการ"))].sort();
+  const dates = [...new Set(rows.map((b) => b.queue_date))].sort();
+
+  const head = document.getElementById("pivotHead");
+  const body = document.getElementById("pivotBody");
+
+  if (dates.length === 0) {
+    head.innerHTML = "<th>วันที่</th>";
+    body.innerHTML = '<tr><td style="text-align:center; color:#888; padding:20px;">ไม่มีข้อมูลในช่วงวันที่นี้</td></tr>';
+    return;
+  }
+
+  head.innerHTML =
+    "<th>วันที่</th>" +
+    services.map((s) => `<th>${escapeHtml(s)}</th>`).join("") +
+    "<th>รวม</th>";
+
+  body.innerHTML = dates.map((date) => {
+
+    const rowBookings = rows.filter((b) => b.queue_date === date);
+
+    const cells = services.map((s) => {
+      const count = rowBookings.filter((b) => (b.service_name || "ไม่ระบุบริการ") === s).length;
+      return `<td>${count || "-"}</td>`;
+    }).join("");
+
+    return `<tr><td><strong>${formatDate(date)}</strong></td>${cells}<td><strong>${rowBookings.length}</strong></td></tr>`;
+
+  }).join("");
+
+}
+
+
+/* =====================================================
+   FORMAT / HELPERS
+   ===================================================== */
+
+function formatDate(dateStr) {
+  const parts = dateStr.split("-");
+  if (parts.length !== 3) return dateStr;
+  return `${parts[2]}/${parts[1]}/${Number(parts[0]) + 543}`;
+}
+
+function escapeHtml(text) {
+  const div = document.createElement("div");
+  div.textContent = String(text);
+  return div.innerHTML;
+}
+
+</script>
+
+</body>
+</html>
