@@ -107,6 +107,53 @@
     .logout-link { color: #b00020; text-decoration: underline; cursor: pointer; font-size: 14px; background:none; border:none; width:auto; padding:0; }
 
     canvas { max-height: 320px; }
+
+    /* calendar */
+    .cal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+    .cal-header button {
+      width: auto;
+      padding: 8px 16px;
+      background: #f4f7f9;
+      color: #222;
+    }
+    .cal-header .cal-title { font-weight: bold; font-size: 16px; }
+
+    .cal-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 6px;
+    }
+    .cal-dow {
+      text-align: center;
+      font-size: 12px;
+      color: #888;
+      font-weight: bold;
+      padding-bottom: 4px;
+    }
+    .cal-cell {
+      min-height: 96px;
+      border-radius: 10px;
+      padding: 6px 6px;
+      font-size: 10px;
+      background: #f4f7f9;
+    }
+    .cal-cell.empty { background: transparent; }
+    .cal-cell .d { font-weight: bold; font-size: 13px; margin-bottom: 3px; }
+    .cal-cell.today { border: 2px solid #06c755; }
+    .cal-cell.closed { color: #aaa; }
+    .cal-cell .svc-line { margin-bottom: 2px; line-height: 1.25; }
+    .cal-cell .svc-name { color: #555; }
+    .cal-cell .remain-ok { color: #06c755; font-weight: bold; }
+    .cal-cell .remain-full { color: #b00020; font-weight: bold; }
+
+    @media (max-width: 520px) {
+      .cal-cell { min-height: 86px; font-size: 9px; padding: 4px; }
+    }
   </style>
 </head>
 
@@ -129,6 +176,19 @@
     <div class="card topbar">
       <h1 style="margin:0;">📊 แดชบอร์ดคิว รพ.สต.</h1>
       <button class="logout-link" id="logoutBtn">ออกจากระบบ</button>
+    </div>
+
+    <div class="card">
+      <h2>ปฏิทินคิวรายเดือน</h2>
+      <div class="cal-header">
+        <button id="calPrevBtn">‹ เดือนก่อน</button>
+        <div class="cal-title" id="calTitle">-</div>
+        <button id="calNextBtn">เดือนถัดไป ›</button>
+      </div>
+      <div class="cal-grid" id="calGrid"></div>
+      <p style="font-size:12px; color:#888; margin-top:10px; margin-bottom:0;">
+        แต่ละวันแสดงแยกตามบริการ: จำนวนที่จองแล้ว (ไม่รวมที่ยกเลิก) / คิวที่ยังว่าง ของบริการนั้นในวันนั้น · บริการที่ไม่ขึ้นแปลว่ายังไม่เปิดรับคิวในวันนั้น
+      </p>
     </div>
 
     <div class="card">
@@ -194,8 +254,13 @@ const STATUS_LABEL = {
 };
 
 let allBookings = [];   // เก็บข้อมูลดิบทั้งหมดหลังล็อกอิน
+let allSlots = [];      // ข้อมูลความจุ/คงเหลือของแต่ละช่วงเวลา (สำหรับปฏิทิน)
 let adminPassword = ""; // เก็บไว้ใช้ตอนกด "รีเฟรชข้อมูล"
 let chartInstance = null;
+let calYear, calMonth; // เดือนที่กำลังแสดงในปฏิทิน (calMonth: 0-11)
+
+const THAI_MONTH = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
+const THAI_DOW = ["อา","จ","อ","พ","พฤ","ศ","ส"];
 
 
 /* =====================================================
@@ -225,15 +290,22 @@ async function login() {
 
   try {
 
-    const bookings = await fetchBookings(password);
+    const result = await fetchBookings(password);
 
     adminPassword = password;
-    allBookings = bookings;
+    allBookings = result.bookings;
+    allSlots = result.slots;
 
     document.getElementById("loginCard").classList.add("hidden");
     document.getElementById("dashboardArea").classList.remove("hidden");
 
     setDefaultDateRange();
+
+    const today = new Date();
+    calYear = today.getFullYear();
+    calMonth = today.getMonth();
+    renderCalendar();
+
     renderDashboard();
 
   } catch (error) {
@@ -253,6 +325,7 @@ async function login() {
 function logout() {
   adminPassword = "";
   allBookings = [];
+  allSlots = [];
   document.getElementById("password").value = "";
   document.getElementById("dashboardArea").classList.add("hidden");
   document.getElementById("loginCard").classList.remove("hidden");
@@ -282,7 +355,7 @@ async function fetchBookings(password) {
     throw new Error(result.error || "โหลดข้อมูลไม่สำเร็จ");
   }
 
-  return result.bookings || [];
+  return { bookings: result.bookings || [], slots: result.slots || [] };
 
 }
 
@@ -302,7 +375,10 @@ document.getElementById("refreshBtn").addEventListener("click", async () => {
 
   try {
 
-    allBookings = await fetchBookings(adminPassword);
+    const result = await fetchBookings(adminPassword);
+    allBookings = result.bookings;
+    allSlots = result.slots;
+    renderCalendar();
     renderDashboard();
 
   } catch (error) {
@@ -320,6 +396,113 @@ document.getElementById("refreshBtn").addEventListener("click", async () => {
 
 document.getElementById("fromDate").addEventListener("change", renderDashboard);
 document.getElementById("toDate").addEventListener("change", renderDashboard);
+
+document.getElementById("calPrevBtn").addEventListener("click", () => {
+  calMonth--;
+  if (calMonth < 0) { calMonth = 11; calYear--; }
+  renderCalendar();
+});
+
+document.getElementById("calNextBtn").addEventListener("click", () => {
+  calMonth++;
+  if (calMonth > 11) { calMonth = 0; calYear++; }
+  renderCalendar();
+});
+
+
+/* =====================================================
+   CALENDAR VIEW — จำนวนจอง / คงเหลือ รายวัน
+   ===================================================== */
+
+function renderCalendar() {
+
+  document.getElementById("calTitle").textContent =
+    `${THAI_MONTH[calMonth]} ${calYear + 543}`;
+
+  // สรุปจำนวนจอง (ไม่รวมที่ยกเลิก) แยกตาม วันที่ -> ชื่อบริการ
+  const bookedByDate = {};
+  allBookings.forEach((b) => {
+    if (b.status === "cancelled") return;
+    const svc = b.service_name || "ไม่ระบุบริการ";
+    if (!bookedByDate[b.queue_date]) bookedByDate[b.queue_date] = {};
+    bookedByDate[b.queue_date][svc] = (bookedByDate[b.queue_date][svc] || 0) + 1;
+  });
+
+  // สรุปความจุ/จำนวนที่ถูกจองตามระบบคิว แยกตาม วันที่ -> ชื่อบริการ
+  const capacityByDate = {};
+  allSlots.forEach((s) => {
+    const svc = s.service_name || "ไม่ระบุบริการ";
+    if (!capacityByDate[s.queue_date]) capacityByDate[s.queue_date] = {};
+    if (!capacityByDate[s.queue_date][svc]) capacityByDate[s.queue_date][svc] = { max: 0, current: 0 };
+    capacityByDate[s.queue_date][svc].max += Number(s.max_queue || 0);
+    capacityByDate[s.queue_date][svc].current += Number(s.current_queue || 0);
+  });
+
+  const firstOfMonth = new Date(calYear, calMonth, 1);
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  const startWeekday = firstOfMonth.getDay(); // 0=อาทิตย์
+
+  const todayStr = toDateStr(new Date());
+
+  const grid = document.getElementById("calGrid");
+  grid.innerHTML = "";
+
+  THAI_DOW.forEach((d) => {
+    const el = document.createElement("div");
+    el.className = "cal-dow";
+    el.textContent = d;
+    grid.appendChild(el);
+  });
+
+  for (let i = 0; i < startWeekday; i++) {
+    const el = document.createElement("div");
+    el.className = "cal-cell empty";
+    grid.appendChild(el);
+  }
+
+  for (let day = 1; day <= daysInMonth; day++) {
+
+    const dateStr = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const capForDate = capacityByDate[dateStr];
+    const bookedForDate = bookedByDate[dateStr] || {};
+
+    const cell = document.createElement("div");
+    cell.className = "cal-cell" + (dateStr === todayStr ? " today" : "") + (!capForDate ? " closed" : "");
+
+    let inner = `<div class="d">${day}</div>`;
+
+    if (capForDate) {
+
+      // รวมรายชื่อบริการทั้งหมดที่เกี่ยวข้องกับวันนี้ (จากทั้ง capacity และ booking)
+      const services = [...new Set([...Object.keys(capForDate), ...Object.keys(bookedForDate)])].sort();
+
+      services.forEach((svc) => {
+        const cap = capForDate[svc];
+        const bookedCount = bookedForDate[svc] || 0;
+        const shortName = svc.length > 14 ? svc.slice(0, 13) + "…" : svc;
+
+        if (cap) {
+          const remaining = cap.max - cap.current;
+          inner += `<div class="svc-line"><span class="svc-name">${shortName}</span> ${bookedCount}/` +
+            (remaining > 0
+              ? `<span class="remain-ok">เหลือ${remaining}</span>`
+              : `<span class="remain-full">เต็ม</span>`) +
+            `</div>`;
+        } else {
+          inner += `<div class="svc-line"><span class="svc-name">${shortName}</span> ${bookedCount}/-</div>`;
+        }
+      });
+
+    } else {
+      inner += `<div>ปิดรับ</div>`;
+    }
+
+    cell.innerHTML = inner;
+    grid.appendChild(cell);
+
+  }
+
+}
 
 
 /* =====================================================
@@ -487,3 +670,4 @@ function escapeHtml(text) {
 
 </body>
 </html>
+
